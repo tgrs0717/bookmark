@@ -11,6 +11,16 @@ import {
   import path from 'path';
   import express from 'express';
   import { incrementMessageCount, getMessageCount } from './firestoreMessageCount';
+  import { db } from './firebase'; // 上記ファイルを import
+
+// Firestore 書き込みテスト
+db.collection("messageCounts").doc("test").set({ count: 1 })
+  .then(() => {
+    console.log("✅ Firestore write test successful");
+  })
+  .catch((err) => {
+    console.error("❌ Firestore write test failed:", err);
+  });
 
 
 // Expressサーバーの設定
