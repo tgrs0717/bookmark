@@ -1,12 +1,10 @@
-import { initializeApp, applicationDefault, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import * as admin from 'firebase-admin';
-import * as path from 'path';
+import { initializeApp, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
-const serviceAccount = require(path.resolve('./serviceAccountKey.json'));
+const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS!);
 
-admin.initializeApp({
-  credential: cert(serviceAccount)
+initializeApp({
+  credential: cert(serviceAccount),
 });
 
 export const db = getFirestore();
