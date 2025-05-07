@@ -4,10 +4,10 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-  "start": "node dist/index.js",
-  "dev": "ts-node src/index.ts",
-  "build": "tsc"
-},
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "build": "tsc"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tgrs0717/bookmark.git"
@@ -23,9 +23,11 @@
   "dependencies": {
     "discord.js": "^14.19.3",
     "dotenv": "^16.5.0",
+    "express": "^5.1.0",
     "ts-node": "^10.9.2"
   },
   "devDependencies": {
+    "@types/express": "^5.0.1",
     "typescript": "^5.0.0"
   }
 }
