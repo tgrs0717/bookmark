@@ -32,12 +32,18 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
 const dotenv = __importStar(require("dotenv"));
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
 dotenv.config();
 const TOKEN = process.env.DISCORD_TOKEN;
 const TARGET_CHANNEL_ID = process.env.TARGET_CHANNEL_ID;
+const MESSAGE_COUNTS_FILE = path_1.default.join(__dirname, 'messageCounts.json');
 const client = new discord_js_1.Client({
     intents: [
         discord_js_1.GatewayIntentBits.Guilds,
@@ -47,6 +53,22 @@ const client = new discord_js_1.Client({
     ],
     partials: [discord_js_1.Partials.Channel],
 });
+const messageCounts = new Map(); // ユーザーごとのメッセージ数を追跡
+// メッセージ数を保存する関数
+function saveMessageCounts() {
+    fs_1.default.writeFileSync(MESSAGE_COUNTS_FILE, JSON.stringify(Object.fromEntries(messageCounts)));
+}
+// メッセージ数を読み込む関数
+function loadMessageCounts() {
+    if (fs_1.default.existsSync(MESSAGE_COUNTS_FILE)) {
+        const data = fs_1.default.readFileSync(MESSAGE_COUNTS_FILE, 'utf-8');
+        const parsedData = JSON.parse(data);
+        for (const [key, value] of Object.entries(parsedData)) {
+            messageCounts.set(key, value);
+        }
+    }
+}
+loadMessageCounts(); // 起動時にメッセージ数を読み込む
 client.once(discord_js_1.Events.ClientReady, () => {
     console.log(`Logged in as ${client.user?.tag}`);
 });
@@ -55,6 +77,16 @@ client.on(discord_js_1.Events.MessageCreate, async (message) => {
         return;
     if (message.channel.id !== TARGET_CHANNEL_ID)
         return;
+    // 添付ファイルがない場合、URLが含まれているかを確認
+    const hasAttachments = message.attachments.size > 0;
+    const hasURL = /(https?:\/\/[^\s]+)/.test(message.content);
+    if (!hasAttachments && !hasURL)
+        return;
+    // メッセージ数をカウント
+    const userId = message.author.id;
+    const currentCount = messageCounts.get(userId) || 0;
+    messageCounts.set(userId, currentCount + 1);
+    saveMessageCounts(); // メッセージ数を保存
     try {
         const dmChannel = await message.author.createDM();
         // 添付ファイルの処理
@@ -65,10 +97,10 @@ client.on(discord_js_1.Events.MessageCreate, async (message) => {
             });
             files.push(file);
         }
-        // 送信するテキスト（空の場合は省略）
+        // 送信するテキスト（URLが含まれている場合はその内容を送信）
         const content = message.content.trim() !== ''
-            ? `あなたが送ったメッセージ:\n> ${message.content}`
-            : undefined;
+            ? `あなたが送ったメッセージ:\n> ${message.content}\n\nこれまでに送信したメッセージ数: ${messageCounts.get(userId)}`
+            : `これまでに送信したメッセージ数: ${messageCounts.get(userId)}`;
         await dmChannel.send({
             content,
             files,

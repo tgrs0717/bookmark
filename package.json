@@ -2,11 +2,11 @@
   "name": "bookmark",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
- "scripts": {
-  "build": "tsc",
-  "start": "ts-node src/index.ts",
-  "start:prod": "node dist/index.js"
+  "main": "dist/index.js",
+  "scripts": {
+  "start": "node dist/index.js",
+  "dev": "ts-node src/index.ts",
+  "build": "tsc"
 },
   "repository": {
     "type": "git",
@@ -22,11 +22,10 @@
   "homepage": "https://github.com/tgrs0717/bookmark#readme",
   "dependencies": {
     "discord.js": "^14.19.3",
-    "dotenv": "^16.5.0"
+    "dotenv": "^16.5.0",
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
-    "@types/node": "^22.15.14",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.0.0"
   }
 }

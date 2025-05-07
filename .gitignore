@@ -1,0 +1,8 @@
+#node_modules/
+dist/
+
+# 環境変数ファイル
+.env
+
+# メッセージカウントファイル
+src/messageCounts.json
