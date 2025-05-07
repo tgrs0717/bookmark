@@ -9,10 +9,20 @@ export async function getMessageCount(userId: string): Promise<number> {
 }
 
 export async function incrementMessageCount(userId: string): Promise<number> {
-  const ref = db.collection(COLLECTION).doc(userId);
-  const doc = await ref.get();
-  const current = doc.exists ? doc.data()?.count || 0 : 0;
-  const updated = current + 1;
-  await ref.set({ count: updated });
-  return updated;
+  try {
+    const docRef = db.collection(COLLECTION).doc(userId);
+    let newCount = 0;
+
+    await db.runTransaction(async (t) => {
+      const doc = await t.get(docRef);
+      newCount = (doc.exists ? doc.data()?.count || 0 : 0) + 1;
+      t.set(docRef, { count: newCount }, { merge: true });
+    });
+
+    console.log(`✅ Message count updated for ${userId}: ${newCount}`);
+    return newCount;
+  } catch (error) {
+    console.error(`❌ Failed to update message count for ${userId}:`, error);
+    throw error;
+  }
 }
