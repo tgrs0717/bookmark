@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: discord-bot
+    name: bookmark
     env: node
     buildCommand: npm install && npm run build
     startCommand: npm run start

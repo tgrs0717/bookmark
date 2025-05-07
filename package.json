@@ -21,9 +21,11 @@
   },
   "homepage": "https://github.com/tgrs0717/bookmark#readme",
   "dependencies": {
+    "@google-cloud/firestore": "^7.11.0",
     "discord.js": "^14.19.3",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "firebase-admin": "^13.3.0",
     "ts-node": "^10.9.2"
   },
   "devDependencies": {

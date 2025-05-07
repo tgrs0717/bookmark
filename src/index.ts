@@ -10,6 +10,8 @@ import {
   import fs from 'fs';
   import path from 'path';
   import express from 'express';
+  import { incrementMessageCount, getMessageCount } from './firestoreMessageCount';
+
 
 // Expressサーバーの設定
 const app = express();
@@ -73,13 +75,15 @@ app.listen(PORT, () => {
   
     if (!hasAttachments && !hasURL) return;
   
-    // メッセージ数をカウント
-    const userId = message.author.id;
-    const currentCount = messageCounts.get(userId) || 0;
-    messageCounts.set(userId, currentCount + 1);
-    saveMessageCounts(); // メッセージ数を保存
-  
+    // メッセージ数をカウント（Firestoreを使用）
     try {
+      const userId = message.author.id;
+      const newCount = await incrementMessageCount(userId); // メッセージ数をFirestoreで更新
+  
+      const currentCount = messageCounts.get(userId) || 0;
+      messageCounts.set(userId, currentCount + 1);
+      saveMessageCounts(); // メッセージ数を保存
+  
       const dmChannel = await message.author.createDM();
   
       // 添付ファイルの処理
@@ -91,10 +95,10 @@ app.listen(PORT, () => {
         files.push(file);
       }
   
-      // 送信するテキスト（URLが含まれている場合はその内容を送信）
+      // 送信するテキスト（Firestoreのカウントを含む）
       const content = message.content.trim() !== ''
-        ? `あなたが送ったメッセージ:\n> ${message.content}\n\nこれまでに送信したメッセージ数: ${messageCounts.get(userId)}`
-        : `これまでに送信したメッセージ数: ${messageCounts.get(userId)}`;
+        ? `あなたが送ったメッセージ:\n> ${message.content}\n\nこれまでに送信したメッセージ数: ${newCount}`
+        : `これまでに送信したメッセージ数: ${newCount}`;
   
       await dmChannel.send({
         content,

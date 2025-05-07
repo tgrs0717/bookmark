@@ -40,6 +40,17 @@ const discord_js_1 = require("discord.js");
 const dotenv = __importStar(require("dotenv"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
+const express_1 = __importDefault(require("express"));
+const firestoreMessageCount_1 = require("./firestoreMessageCount");
+// Expressサーバーの設定
+const app = (0, express_1.default)();
+const PORT = process.env.PORT || 3000;
+app.get('/', (_req, res) => {
+    res.send('Hello from Render with Express + TypeScript!');
+});
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
 dotenv.config();
 const TOKEN = process.env.DISCORD_TOKEN;
 const TARGET_CHANNEL_ID = process.env.TARGET_CHANNEL_ID;
@@ -82,12 +93,13 @@ client.on(discord_js_1.Events.MessageCreate, async (message) => {
     const hasURL = /(https?:\/\/[^\s]+)/.test(message.content);
     if (!hasAttachments && !hasURL)
         return;
-    // メッセージ数をカウント
-    const userId = message.author.id;
-    const currentCount = messageCounts.get(userId) || 0;
-    messageCounts.set(userId, currentCount + 1);
-    saveMessageCounts(); // メッセージ数を保存
+    // メッセージ数をカウント（Firestoreを使用）
     try {
+        const userId = message.author.id;
+        const newCount = await (0, firestoreMessageCount_1.incrementMessageCount)(userId); // メッセージ数をFirestoreで更新
+        const currentCount = messageCounts.get(userId) || 0;
+        messageCounts.set(userId, currentCount + 1);
+        saveMessageCounts(); // メッセージ数を保存
         const dmChannel = await message.author.createDM();
         // 添付ファイルの処理
         const files = [];
@@ -97,10 +109,10 @@ client.on(discord_js_1.Events.MessageCreate, async (message) => {
             });
             files.push(file);
         }
-        // 送信するテキスト（URLが含まれている場合はその内容を送信）
+        // 送信するテキスト（Firestoreのカウントを含む）
         const content = message.content.trim() !== ''
-            ? `あなたが送ったメッセージ:\n> ${message.content}\n\nこれまでに送信したメッセージ数: ${messageCounts.get(userId)}`
-            : `これまでに送信したメッセージ数: ${messageCounts.get(userId)}`;
+            ? `あなたが送ったメッセージ:\n> ${message.content}\n\nこれまでに送信したメッセージ数: ${newCount}`
+            : `これまでに送信したメッセージ数: ${newCount}`;
         await dmChannel.send({
             content,
             files,
