@@ -50,9 +50,10 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.DirectMessages,
   ],
-  partials: [Partials.Channel],
+  partials: [Partials.Channel, Partials.Message, Partials.Reaction],
 });
 
 const messageCounts: Map<string, number> = new Map(); // ユーザーごとのメッセージ数を追跡

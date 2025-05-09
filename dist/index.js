@@ -72,9 +72,10 @@ const client = new discord_js_1.Client({
         discord_js_1.GatewayIntentBits.Guilds,
         discord_js_1.GatewayIntentBits.GuildMessages,
         discord_js_1.GatewayIntentBits.MessageContent,
+        discord_js_1.GatewayIntentBits.GuildMessageReactions,
         discord_js_1.GatewayIntentBits.DirectMessages,
     ],
-    partials: [discord_js_1.Partials.Channel],
+    partials: [discord_js_1.Partials.Channel, discord_js_1.Partials.Message, discord_js_1.Partials.Reaction],
 });
 const messageCounts = new Map(); // ユーザーごとのメッセージ数を追跡
 // メッセージ数を保存する関数
