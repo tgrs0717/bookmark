@@ -183,10 +183,22 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
 
       try {
         const userDocRef = db.collection('messageCounts').doc(userId);
-        await userDocRef.update({
-          count: FieldValue.increment(-1),
-        });
-        console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。`);
+        const userDoc = await userDocRef.get();
+
+        if (userDoc.exists) {
+          const currentCount = userDoc.data()?.count || 0;
+
+          if (currentCount > 0) {
+            await userDocRef.update({
+              count: FieldValue.increment(-1),
+            });
+            console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。現在のカウント: ${currentCount - 1}`);
+          } else {
+            console.log(`ℹ️ ユーザー ${userId} のカウントは既に 0 です。減算をスキップしました。`);
+          }
+        } else {
+          console.log(`ℹ️ Firestoreにユーザー ${userId} のカウントデータが存在しません。`);
+        }
       } catch (err) {
         console.error(`❌ Firestoreでユーザー ${userId} のカウント減少に失敗しました:`, err);
       }
