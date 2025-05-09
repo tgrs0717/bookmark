@@ -11,10 +11,19 @@ async function getMessageCount(userId) {
     return doc.data()?.count || 0;
 }
 async function incrementMessageCount(userId) {
-    const ref = firebase_1.db.collection(COLLECTION).doc(userId);
-    const doc = await ref.get();
-    const current = doc.exists ? doc.data()?.count || 0 : 0;
-    const updated = current + 1;
-    await ref.set({ count: updated });
-    return updated;
+    try {
+        const docRef = firebase_1.db.collection(COLLECTION).doc(userId);
+        let newCount = 0;
+        await firebase_1.db.runTransaction(async (t) => {
+            const doc = await t.get(docRef);
+            newCount = (doc.exists ? doc.data()?.count || 0 : 0) + 1;
+            t.set(docRef, { count: newCount }, { merge: true });
+        });
+        console.log(`✅ Message count updated for ${userId}: ${newCount}`);
+        return newCount;
+    }
+    catch (error) {
+        console.error(`❌ Failed to update message count for ${userId}:`, error);
+        throw error;
+    }
 }

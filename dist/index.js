@@ -42,6 +42,15 @@ const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const express_1 = __importDefault(require("express"));
 const firestoreMessageCount_1 = require("./firestoreMessageCount");
+const firebase_1 = require("./firebase"); // 上記ファイルを import
+// Firestore 書き込みテスト
+firebase_1.db.collection("messageCounts").doc("test").set({ count: 1 })
+    .then(() => {
+    console.log("✅ Firestore write test successful");
+})
+    .catch((err) => {
+    console.error("❌ Firestore write test failed:", err);
+});
 // Expressサーバーの設定
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
