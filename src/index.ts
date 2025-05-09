@@ -14,6 +14,7 @@ import path from 'path';
 import express from 'express';
 import { incrementMessageCount, getMessageCount } from './firestoreMessageCount';
 import { db } from './firebase'; // 上記ファイルを import
+import * as sendCommandModule from './commands/text';
 import { data as sendCommand,clearDmData } from './commands/text'; // スラッシュコマンドをインポート
 
 dotenv.config();
@@ -74,29 +75,7 @@ function loadMessageCounts() {
 
 loadMessageCounts(); // 起動時にメッセージ数を読み込む
 
-client.once(Events.ClientReady, () => {
-  console.log(`Logged in as ${client.user?.tag}`);
-});
 
-import * as sendCommandModule from './commands/text'; // text.ts に execute がある想定
-
-client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName === 'send') {
-    try {
-      await sendCommandModule.execute(interaction);
-    } catch (error) {
-      console.error('❌ コマンドの実行に失敗しました:', error);
-      if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({ content: 'エラーが発生しました。', ephemeral: true });
-      } else {
-        await interaction.reply({ content: 'エラーが発生しました。', ephemeral: true });
-      }
-    }
-  }
-  
-  
-});
 
 
 
@@ -120,6 +99,26 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
     console.error('❌ スラッシュコマンドの登録に失敗しました:', error);
   }
 })();
+
+client.on(Events.InteractionCreate, async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+
+  try {
+    if (interaction.commandName === 'send') {
+      await sendCommandModule.execute(interaction);
+    } else if (interaction.commandName === 'cleardm') {
+      await sendCommandModule.clearDmExecute(interaction); // ← これが必要！
+    }
+  } catch (error) {
+    console.error(`❌ ${interaction.commandName} コマンドの実行に失敗しました:`, error);
+
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp({ content: 'エラーが発生しました。', ephemeral: true });
+    } else {
+      await interaction.reply({ content: 'エラーが発生しました。', ephemeral: true });
+    }
+  }
+});
 
 client.on(Events.MessageCreate, async (message: Message) => {
   if (message.author.bot) return;

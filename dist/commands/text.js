@@ -45,7 +45,7 @@ async function execute(interaction) {
         // DMチャンネルを作成してメッセージを送信
         const dmChannel = await interaction.user.createDM();
         await dmChannel.send({
-            content: `> No.: ${newCount}\n${messageContent}\n`,
+            content: `> 現在のブックマーク数 : ${newCount}\n${messageContent}\n`,
         });
         // 公開チャンネルにメッセージを送信
         await interaction.channel?.send(messageContent);
@@ -69,36 +69,69 @@ async function execute(interaction) {
     }
 }
 // ボットのDM内のメッセージを削除するコマンドの実行
+// ボットのDM内のメッセージを削除するコマンドの実行
 async function clearDmExecute(interaction) {
     try {
-        // 応答を遅延
-        await interaction.deferReply({ ephemeral: true });
+        // 応答を遅延（エフェメラルメッセージで）
+        try {
+            await interaction.deferReply({ ephemeral: true });
+        }
+        catch (e) {
+            console.warn('deferReply に失敗しました:', e);
+        }
         // ボットのDMチャンネルを取得
         const dmChannel = await interaction.user.createDM();
-        // メッセージを取得
+        // メッセージを取得（最大100件）
         const messages = await dmChannel.messages.fetch({ limit: 100 });
         if (messages.size === 0) {
-            await interaction.editReply({
-                content: 'DM内に削除するメッセージがありません。',
-            });
+            if (!interaction.replied) {
+                await interaction.editReply({
+                    content: 'DM内に削除するメッセージがありません。',
+                });
+            }
+            else {
+                await interaction.followUp({
+                    content: 'DM内に削除するメッセージがありません。',
+                    ephemeral: true,
+                });
+            }
             return;
         }
-        // メッセージを削除
-        for (const message of messages.values()) {
-            await message.delete();
+        // メッセージを並列で削除（Botが送信したもののみ）
+        const messagesArray = Array.from(messages.values());
+        await Promise.all(messagesArray.map(async (msg) => {
+            try {
+                if (msg.author.bot) {
+                    await msg.delete();
+                }
+            }
+            catch (e) {
+                console.warn(`⚠️ メッセージ ${msg.id} の削除に失敗しました:`, e);
+            }
+        }));
+        if (!interaction.replied) {
+            await interaction.editReply({
+                content: `ボットのDM内のメッセージをすべて削除しました（${messagesArray.length} 件）。`,
+            });
         }
-        await interaction.editReply({
-            content: `ボットのDM内のメッセージをすべて削除しました。`,
-        });
-        console.log(`✅ ボットのDM内のメッセージを削除しました (${messages.size} 件)`);
+        else {
+            await interaction.followUp({
+                content: `ボットのDM内のメッセージをすべて削除しました（${messagesArray.length} 件）。`,
+                ephemeral: true,
+            });
+        }
+        console.log(`✅ ボットのDM内のメッセージを削除しました (${messagesArray.length} 件)`);
     }
     catch (error) {
         console.error('❌ DM内のメッセージ削除に失敗しました:', error);
-        // エラー応答
         try {
-            await interaction.editReply({
-                content: 'DM内のメッセージ削除中にエラーが発生しました。',
-            });
+            const errorMsg = 'DM内のメッセージ削除中にエラーが発生しました。';
+            if (!interaction.replied) {
+                await interaction.editReply({ content: errorMsg });
+            }
+            else {
+                await interaction.followUp({ content: errorMsg, ephemeral: true });
+            }
         }
         catch (innerError) {
             console.error('⚠️ エラーメッセージの送信にも失敗しました:', innerError);

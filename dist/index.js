@@ -43,6 +43,7 @@ const path_1 = __importDefault(require("path"));
 const express_1 = __importDefault(require("express"));
 const firestoreMessageCount_1 = require("./firestoreMessageCount");
 const firebase_1 = require("./firebase"); // 上記ファイルを import
+const sendCommandModule = __importStar(require("./commands/text"));
 const text_1 = require("./commands/text"); // スラッシュコマンドをインポート
 dotenv.config();
 // Firestore 書き込みテスト
@@ -91,28 +92,6 @@ function loadMessageCounts() {
     }
 }
 loadMessageCounts(); // 起動時にメッセージ数を読み込む
-client.once(discord_js_1.Events.ClientReady, () => {
-    console.log(`Logged in as ${client.user?.tag}`);
-});
-const sendCommandModule = __importStar(require("./commands/text")); // text.ts に execute がある想定
-client.on(discord_js_1.Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isChatInputCommand())
-        return;
-    if (interaction.commandName === 'send') {
-        try {
-            await sendCommandModule.execute(interaction);
-        }
-        catch (error) {
-            console.error('❌ コマンドの実行に失敗しました:', error);
-            if (interaction.deferred || interaction.replied) {
-                await interaction.followUp({ content: 'エラーが発生しました。', ephemeral: true });
-            }
-            else {
-                await interaction.reply({ content: 'エラーが発生しました。', ephemeral: true });
-            }
-        }
-    }
-});
 // スラッシュコマンドの登録
 const commands = [
     text_1.data.toJSON(),
@@ -129,6 +108,27 @@ const rest = new discord_js_1.REST({ version: '10' }).setToken(TOKEN);
         console.error('❌ スラッシュコマンドの登録に失敗しました:', error);
     }
 })();
+client.on(discord_js_1.Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand())
+        return;
+    try {
+        if (interaction.commandName === 'send') {
+            await sendCommandModule.execute(interaction);
+        }
+        else if (interaction.commandName === 'cleardm') {
+            await sendCommandModule.clearDmExecute(interaction); // ← これが必要！
+        }
+    }
+    catch (error) {
+        console.error(`❌ ${interaction.commandName} コマンドの実行に失敗しました:`, error);
+        if (interaction.deferred || interaction.replied) {
+            await interaction.followUp({ content: 'エラーが発生しました。', ephemeral: true });
+        }
+        else {
+            await interaction.reply({ content: 'エラーが発生しました。', ephemeral: true });
+        }
+    }
+});
 client.on(discord_js_1.Events.MessageCreate, async (message) => {
     if (message.author.bot)
         return;

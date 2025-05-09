@@ -51,7 +51,7 @@ export async function execute(interaction: any) {
     // DMチャンネルを作成してメッセージを送信
     const dmChannel = await interaction.user.createDM();
     await dmChannel.send({
-      content: `> ブックマークNo.${newCount}\n${messageContent}\n`,
+      content: `> 現在のブックマーク数 : ${newCount}\n${messageContent}\n`,
     });
 
     // 公開チャンネルにメッセージを送信
