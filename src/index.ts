@@ -155,7 +155,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
     // 送信するテキスト（Firestoreのカウントを含む）
     const content = message.content.trim() !== ''
       ? `> 現在のブックマーク数: ${newCount}\n${message.content}`
-      : `これまでに送信したメッセージ数: ${newCount}`;
+      : `> 現在のブックマーク数: ${newCount}`;
 
     await dmChannel.send({
       content,
