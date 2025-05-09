@@ -38,7 +38,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
 const dotenv = __importStar(require("dotenv"));
-const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const express_1 = __importDefault(require("express"));
 const firestoreMessageCount_1 = require("./firestoreMessageCount");
@@ -79,22 +78,6 @@ const client = new discord_js_1.Client({
     ],
     partials: [discord_js_1.Partials.Channel, discord_js_1.Partials.Message, discord_js_1.Partials.Reaction],
 });
-const messageCounts = new Map(); // ユーザーごとのメッセージ数を追跡
-// メッセージ数を保存する関数
-function saveMessageCounts() {
-    fs_1.default.writeFileSync(MESSAGE_COUNTS_FILE, JSON.stringify(Object.fromEntries(messageCounts)));
-}
-// メッセージ数を読み込む関数
-function loadMessageCounts() {
-    if (fs_1.default.existsSync(MESSAGE_COUNTS_FILE)) {
-        const data = fs_1.default.readFileSync(MESSAGE_COUNTS_FILE, 'utf-8');
-        const parsedData = JSON.parse(data);
-        for (const [key, value] of Object.entries(parsedData)) {
-            messageCounts.set(key, value);
-        }
-    }
-}
-loadMessageCounts(); // 起動時にメッセージ数を読み込む
 // メッセージ削除時にFirestoreにバックアップ
 function backupDeletedMessageToFirestore(message) {
     const deletedMessage = {
@@ -166,16 +149,13 @@ client.on(discord_js_1.Events.MessageCreate, async (message) => {
             return; // 添付ファイルもURLもない場合はスキップ
         // メッセージ数をカウント（Firestoreを使用）
         const userId = message.author.id;
-        const newCount = await (0, firestoreMessageCount_1.incrementMessageCount)(userId); // Firestoreでカウントを更新
-        const currentCount = messageCounts.get(userId) || 0;
-        messageCounts.set(userId, currentCount + 1);
-        saveMessageCounts(); // ローカルにカウントを保存
-        console.log(`✅ ユーザー ${message.author.tag} のメッセージをカウントしました。現在のカウント: ${currentCount + 1}`);
+        const newCount = await (0, firestoreMessageCount_1.incrementMessageCount)(userId);
+        console.log(`✅ ユーザー ${message.author.tag} のメッセージ数は Firestore 上で ${newCount} になりました`);
     }
     catch (error) {
-        console.error('❌ DM内のメッセージカウント中にエラーが発生しました:', error);
+        console.error('❌ メッセージ作成時のエラー:', error);
     }
-});
+}); // ここで MessageCreate イベントリスナーを閉じる
 client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
     try {
         if (user.bot)
@@ -203,26 +183,21 @@ client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
             await message.delete();
             console.log(`✅ DM内のボットメッセージ ${message.id} を削除しました`);
             // カウントを減らす処理
-            const userId = user.id; // リアクションを付けたユーザーのID
-            const currentCount = messageCounts.get(userId) || 0;
-            if (currentCount > 0) {
-                messageCounts.set(userId, currentCount - 1); // ローカル更新
-                saveMessageCounts();
-                console.log(`ℹ️ ユーザー ${userId} のカウントを減らしました。現在のカウント: ${currentCount - 1}`);
+            const userId = user.id;
+            try {
+                const userDocRef = firebase_1.db.collection('messageCounts').doc(userId);
+                await userDocRef.update({
+                    count: firestore_1.FieldValue.increment(-1),
+                });
+                console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。`);
             }
-            else {
-                console.log(`ℹ️ ユーザー ${userId} のローカルカウントは既に 0 です。Firestore だけ更新します。`);
+            catch (err) {
+                console.error(`❌ Firestoreでユーザー ${userId} のカウント減少に失敗しました:`, err);
             }
-            // Firestore のカウントを減らす処理（必ず実行する）
-            const userDocRef = firebase_1.db.collection('messageCounts').doc(userId);
-            await userDocRef.update({
-                count: firestore_1.FieldValue.increment(-1),
-            });
-            console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。`);
         }
     }
     catch (error) {
         console.error('❌ リアクションによるメッセージ削除に失敗しました:', error);
     }
-}); // ここでイベントリスナーを閉じる
+}); // ここで MessageReactionAdd イベントリスナーを閉じる
 client.login(TOKEN); // クライアントのログイン処理

@@ -62,25 +62,6 @@ const client = new Client({
   partials: [Partials.Channel, Partials.Message, Partials.Reaction],
 });
 
-const messageCounts: Map<string, number> = new Map(); // ユーザーごとのメッセージ数を追跡
-
-// メッセージ数を保存する関数
-function saveMessageCounts() {
-  fs.writeFileSync(MESSAGE_COUNTS_FILE, JSON.stringify(Object.fromEntries(messageCounts)));
-}
-
-// メッセージ数を読み込む関数
-function loadMessageCounts() {
-  if (fs.existsSync(MESSAGE_COUNTS_FILE)) {
-    const data = fs.readFileSync(MESSAGE_COUNTS_FILE, 'utf-8');
-    const parsedData = JSON.parse(data);
-    for (const [key, value] of Object.entries(parsedData)) {
-      messageCounts.set(key, value as number);
-    }
-  }
-}
-
-loadMessageCounts(); // 起動時にメッセージ数を読み込む
 
 // メッセージ削除時にFirestoreにバックアップ
 function backupDeletedMessageToFirestore(message: Message) {
@@ -162,17 +143,12 @@ client.on(Events.MessageCreate, async (message: Message) => {
 
     // メッセージ数をカウント（Firestoreを使用）
     const userId = message.author.id;
-    const newCount = await incrementMessageCount(userId); // Firestoreでカウントを更新
-
-    const currentCount = messageCounts.get(userId) || 0;
-    messageCounts.set(userId, currentCount + 1);
-    saveMessageCounts(); // ローカルにカウントを保存
-
-    console.log(`✅ ユーザー ${message.author.tag} のメッセージをカウントしました。現在のカウント: ${currentCount + 1}`);
+    const newCount = await incrementMessageCount(userId);
+    console.log(`✅ ユーザー ${message.author.tag} のメッセージ数は Firestore 上で ${newCount} になりました`);
   } catch (error) {
-    console.error('❌ DM内のメッセージカウント中にエラーが発生しました:', error);
+    console.error('❌ メッセージ作成時のエラー:', error);
   }
-});
+}); // ここで MessageCreate イベントリスナーを閉じる
 
 client.on(Events.MessageReactionAdd, async (reaction, user) => {
   try {
@@ -203,27 +179,21 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
       console.log(`✅ DM内のボットメッセージ ${message.id} を削除しました`);
 
       // カウントを減らす処理
-      const userId = user.id; // リアクションを付けたユーザーのID
-      const currentCount = messageCounts.get(userId) || 0;
+      const userId = user.id;
 
-      if (currentCount > 0) {
-        messageCounts.set(userId, currentCount - 1); // ローカル更新
-        saveMessageCounts();
-        console.log(`ℹ️ ユーザー ${userId} のカウントを減らしました。現在のカウント: ${currentCount - 1}`);
-      } else {
-        console.log(`ℹ️ ユーザー ${userId} のローカルカウントは既に 0 です。Firestore だけ更新します。`);
+      try {
+        const userDocRef = db.collection('messageCounts').doc(userId);
+        await userDocRef.update({
+          count: FieldValue.increment(-1),
+        });
+        console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。`);
+      } catch (err) {
+        console.error(`❌ Firestoreでユーザー ${userId} のカウント減少に失敗しました:`, err);
       }
-
-      // Firestore のカウントを減らす処理（必ず実行する）
-      const userDocRef = db.collection('messageCounts').doc(userId);
-      await userDocRef.update({
-        count: FieldValue.increment(-1),
-      });
-      console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。`);
     }
   } catch (error) {
     console.error('❌ リアクションによるメッセージ削除に失敗しました:', error);
   }
-}); // ここでイベントリスナーを閉じる
+}); // ここで MessageReactionAdd イベントリスナーを閉じる
 
 client.login(TOKEN); // クライアントのログイン処理
