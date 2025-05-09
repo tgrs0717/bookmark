@@ -94,6 +94,25 @@ loadMessageCounts(); // 起動時にメッセージ数を読み込む
 client.once(discord_js_1.Events.ClientReady, () => {
     console.log(`Logged in as ${client.user?.tag}`);
 });
+const sendCommandModule = __importStar(require("./commands/text")); // text.ts に execute がある想定
+client.on(discord_js_1.Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand())
+        return;
+    if (interaction.commandName === 'send') {
+        try {
+            await sendCommandModule.execute(interaction);
+        }
+        catch (error) {
+            console.error('❌ コマンドの実行に失敗しました:', error);
+            if (interaction.deferred || interaction.replied) {
+                await interaction.followUp({ content: 'エラーが発生しました。', ephemeral: true });
+            }
+            else {
+                await interaction.reply({ content: 'エラーが発生しました。', ephemeral: true });
+            }
+        }
+    }
+});
 // スラッシュコマンドの登録
 const commands = [text_1.data.toJSON()];
 const rest = new discord_js_1.REST({ version: '10' }).setToken(TOKEN);
