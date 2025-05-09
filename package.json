@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "build": "tsc && copy src\\firebase-key.json dist\\"
+    "build": "tsc && cpy src/firebase-key.json dist/"
   },
   "repository": {
     "type": "git",
@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.1",
+    "cpy-cli": "^5.0.0",
     "typescript": "^5.0.0"
   }
 }
