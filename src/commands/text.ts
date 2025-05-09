@@ -61,6 +61,14 @@ export async function execute(interaction: any) {
     await interaction.editReply({
       content: `ボットが代わりに送信しました`,
     });
+    setTimeout(async () => {
+  try {
+    const reply = await interaction.fetchReply();
+    await reply.delete();
+  } catch (error) {
+    console.error('❌ 応答メッセージの削除に失敗しました:', error);
+  }
+}, 5000);
 
     console.log(`✅ メッセージを送信しました: ${messageContent}`);
   } catch (error) {
@@ -77,7 +85,6 @@ export async function execute(interaction: any) {
   }
 }
 
-// ボットのDM内のメッセージを削除するコマンドの実行
 // ボットのDM内のメッセージを削除するコマンドの実行
 export async function clearDmExecute(interaction: any) {
   try {
@@ -144,6 +151,69 @@ export async function clearDmExecute(interaction: any) {
       } else {
         await interaction.followUp({ content: errorMsg, ephemeral: true });
       }
+    } catch (innerError) {
+      console.error('⚠️ エラーメッセージの送信にも失敗しました:', innerError);
+    }
+  }
+}
+
+// リアクション付きメッセージを削除するコマンドの実行
+export async function deleteMessagesWithReaction(interaction: any) {
+  try {
+    // 応答を遅延（エフェメラルメッセージで）
+    await interaction.deferReply({ ephemeral: true });
+
+    // ボットのDMチャンネルを取得
+    const dmChannel = await interaction.user.createDM();
+
+    // メッセージを取得（最大100件）
+    const messages = await dmChannel.messages.fetch({ limit: 100 });
+
+    if (messages.size === 0) {
+      await interaction.editReply({
+        content: 'DM内に削除するメッセージがありません。',
+      });
+      return;
+    }
+
+    // 削除対象のリアクション（例: "❌"）
+    const targetReaction = '❌';
+
+    // メッセージを並列で削除（特定のリアクションが付いたもののみ）
+    const messagesArray = Array.from(messages.values()) as import('discord.js').Message[];
+    const deletedMessages = [];
+
+    for (const msg of messagesArray) {
+      try {
+        const reactions = msg.reactions.cache;
+        if (reactions.has(targetReaction)) {
+          await msg.delete();
+          deletedMessages.push(msg.id);
+        }
+      } catch (e) {
+        console.warn(`⚠️ メッセージ ${msg.id} の削除に失敗しました:`, e);
+      }
+    }
+
+    // 応答メッセージ
+    if (deletedMessages.length > 0) {
+      await interaction.editReply({
+        content: `リアクション "${targetReaction}" が付いたメッセージを削除しました（${deletedMessages.length} 件）。`,
+      });
+    } else {
+      await interaction.editReply({
+        content: `リアクション "${targetReaction}" が付いたメッセージは見つかりませんでした。`,
+      });
+    }
+
+    console.log(`✅ リアクション "${targetReaction}" が付いたメッセージを削除しました (${deletedMessages.length} 件)`);
+  } catch (error) {
+    console.error('❌ リアクション付きメッセージの削除に失敗しました:', error);
+
+    try {
+      await interaction.editReply({
+        content: 'リアクション付きメッセージの削除中にエラーが発生しました。',
+      });
     } catch (innerError) {
       console.error('⚠️ エラーメッセージの送信にも失敗しました:', innerError);
     }
