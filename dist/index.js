@@ -175,6 +175,30 @@ client.on(discord_js_1.Events.MessageCreate, async (message) => {
         console.error(`DM送信に失敗しました (${message.author.tag}):`, error);
     }
 });
+client.on(discord_js_1.Events.MessageCreate, async (message) => {
+    try {
+        // ボットのメッセージは無視
+        if (message.author.bot)
+            return;
+        // DMチャンネルかどうかを確認
+        if (message.channel.type !== discord_js_1.ChannelType.DM)
+            return;
+        // 添付ファイルがあるか、またはURLが含まれているかを確認
+        const hasAttachments = message.attachments.size > 0;
+        const hasURL = /(https?:\/\/[^\s]+)/.test(message.content);
+        if (!hasAttachments && !hasURL)
+            return; // 添付ファイルもURLもない場合はスキップ
+        // メッセージ数をカウント（Firestoreを使用）
+        const userId = message.author.id;
+        const userDocRef = firebase_1.db.collection('messageCounts').doc(userId);
+        // Firestoreでカウントをインクリメント
+        await userDocRef.set({ count: firestore_1.FieldValue.increment(1) }, { merge: true });
+        console.log(`✅ ユーザー ${message.author.tag} のメッセージをカウントしました。`);
+    }
+    catch (error) {
+        console.error('❌ DM内のメッセージカウント中にエラーが発生しました:', error);
+    }
+});
 client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
     try {
         if (user.bot)
@@ -231,4 +255,53 @@ client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
         console.error('❌ リアクションによるメッセージ削除に失敗しました:', error);
     }
 }); // ここで MessageReactionAdd イベントリスナーを閉じる
+client.on(discord_js_1.Events.MessageDelete, async (message) => {
+    try {
+        // メッセージが部分的な場合はスキップ
+        if (message.partial) {
+            console.log('ℹ️ 部分的なメッセージが削除されました。処理をスキップします。');
+            return;
+        }
+        // DMチャンネルかどうかを確認
+        if (message.channel.type !== discord_js_1.ChannelType.DM)
+            return;
+        // ボットのメッセージは無視
+        if (message.author?.bot)
+            return;
+        // URLまたは添付ファイルが含まれているか確認
+        const hasAttachments = message.attachments.size > 0;
+        const hasURL = /(https?:\/\/[^\s]+)/.test(message.content);
+        if (!hasAttachments && !hasURL) {
+            console.log('ℹ️ メッセージにURLまたは添付ファイルが含まれていないため、カウントを減らしません。');
+            return;
+        }
+        // カウントを減らす処理
+        const userId = message.author.id;
+        try {
+            const userDocRef = firebase_1.db.collection('messageCounts').doc(userId);
+            const userDoc = await userDocRef.get();
+            if (userDoc.exists) {
+                const currentCount = userDoc.data()?.count || 0;
+                if (currentCount > 0) {
+                    await userDocRef.update({
+                        count: firestore_1.FieldValue.increment(-1),
+                    });
+                    console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。現在のカウント: ${currentCount - 1}`);
+                }
+                else {
+                    console.log(`ℹ️ ユーザー ${userId} のカウントは既に 0 です。減算をスキップしました。`);
+                }
+            }
+            else {
+                console.log(`ℹ️ Firestoreにユーザー ${userId} のカウントデータが存在しません。`);
+            }
+        }
+        catch (err) {
+            console.error(`❌ Firestoreでユーザー ${userId} のカウント減少に失敗しました:`, err);
+        }
+    }
+    catch (error) {
+        console.error('❌ メッセージ削除時のカウント減少処理に失敗しました:', error);
+    }
+});
 client.login(TOKEN); // クライアントのログイン処理
