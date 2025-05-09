@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "build": "tsc && cpy src/firebase-key.json dist/"
+    "build": "tsc"
   },
   "repository": {
     "type": "git",
