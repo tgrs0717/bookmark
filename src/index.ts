@@ -7,6 +7,9 @@ import {
     Partials,
     REST,
     Routes,
+    ChannelType,
+    CacheType,
+    ChatInputCommandInteraction,
 } from 'discord.js';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
@@ -15,7 +18,7 @@ import express from 'express';
 import { incrementMessageCount, getMessageCount } from './firestoreMessageCount';
 import { db } from './firebase'; // 上記ファイルを import
 import * as sendCommandModule from './commands/text';
-import { data as sendCommand,clearDmData } from './commands/text'; // スラッシュコマンドをインポート
+import { sendCommand,clearDmCommand,restoreCommand } from './commands/text'; // スラッシュコマンドをインポート
 
 dotenv.config();
 
@@ -84,7 +87,8 @@ loadMessageCounts(); // 起動時にメッセージ数を読み込む
 // スラッシュコマンドの登録
 const commands = [
    sendCommand.toJSON(),
-   clearDmData.toJSON(),
+   clearDmCommand.toJSON(),
+   restoreCommand.toJSON(),
 ];
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -170,27 +174,23 @@ client.on(Events.MessageCreate, async (message: Message) => {
 
 client.on(Events.MessageReactionAdd, async (reaction, user) => {
   try {
-    // ボット自身のリアクションは無視
     if (user.bot) return;
 
-    console.log('リアクション追加: ', reaction.message.id); // メッセージIDをログに出力
+    if (reaction.partial) await reaction.fetch();
+    if (reaction.message.partial) await reaction.message.fetch();
 
-    // リアクションが "❌" か確認
-    if (reaction.emoji.name === '❌') {
-      // メッセージがpartialの場合、完全なメッセージを取得
-      if (reaction.message.partial) {
-        await reaction.message.fetch();
-      }
+    const message = reaction.message;
 
-      // メッセージの送信者がボットか確認
-      if (reaction.message.author?.bot) {
-        // メッセージを削除
-        await reaction.message.delete();
-        console.log(`✅ ボットのメッセージ ${reaction.message.id} を削除しました（❌ リアクションが追加されました）。`);
-      } else {
-        console.log(`ℹ️ メッセージ ${reaction.message.id} はボットのメッセージではありません。削除をスキップしました。`);
-      }
+    // ❌ リアクション && DMチャンネル限定
+    if (
+      reaction.emoji.name === '❌' &&
+      message.channel.type === ChannelType.DM &&
+      message.author?.id === client.user?.id // Bot自身のDMメッセージに限定
+    ) {
+      await message.delete();
+      console.log(`✅ DM内のボットメッセージ ${message.id} を削除しました`);
     }
+
   } catch (error) {
     console.error('❌ リアクションによるメッセージ削除に失敗しました:', error);
   }

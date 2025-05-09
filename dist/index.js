@@ -96,8 +96,9 @@ function loadMessageCounts() {
 loadMessageCounts(); // 起動時にメッセージ数を読み込む
 // スラッシュコマンドの登録
 const commands = [
-    text_1.data.toJSON(),
-    text_1.clearDmData.toJSON(),
+    text_1.sendCommand.toJSON(),
+    text_1.clearDmCommand.toJSON(),
+    text_1.restoreCommand.toJSON(),
 ];
 const rest = new discord_js_1.REST({ version: '10' }).setToken(TOKEN);
 (async () => {
@@ -173,25 +174,20 @@ client.on(discord_js_1.Events.MessageCreate, async (message) => {
 });
 client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
     try {
-        // ボット自身のリアクションは無視
         if (user.bot)
             return;
-        console.log('リアクション追加: ', reaction.message.id); // メッセージIDをログに出力
-        // リアクションが "❌" か確認
-        if (reaction.emoji.name === '❌') {
-            // メッセージがpartialの場合、完全なメッセージを取得
-            if (reaction.message.partial) {
-                await reaction.message.fetch();
-            }
-            // メッセージの送信者がボットか確認
-            if (reaction.message.author?.bot) {
-                // メッセージを削除
-                await reaction.message.delete();
-                console.log(`✅ ボットのメッセージ ${reaction.message.id} を削除しました（❌ リアクションが追加されました）。`);
-            }
-            else {
-                console.log(`ℹ️ メッセージ ${reaction.message.id} はボットのメッセージではありません。削除をスキップしました。`);
-            }
+        if (reaction.partial)
+            await reaction.fetch();
+        if (reaction.message.partial)
+            await reaction.message.fetch();
+        const message = reaction.message;
+        // ❌ リアクション && DMチャンネル限定
+        if (reaction.emoji.name === '❌' &&
+            message.channel.type === discord_js_1.ChannelType.DM &&
+            message.author?.id === client.user?.id // Bot自身のDMメッセージに限定
+        ) {
+            await message.delete();
+            console.log(`✅ DM内のボットメッセージ ${message.id} を削除しました`);
         }
     }
     catch (error) {
