@@ -152,43 +152,28 @@ client.on(discord_js_1.Events.InteractionCreate, async (interaction) => {
     }
 });
 client.on(discord_js_1.Events.MessageCreate, async (message) => {
-    if (message.author.bot)
-        return;
-    if (message.channel.id !== TARGET_CHANNEL_ID)
-        return;
-    // 添付ファイルがない場合、URLが含まれているかを確認
-    const hasAttachments = message.attachments.size > 0;
-    const hasURL = /(https?:\/\/[^\s]+)/.test(message.content);
-    if (!hasAttachments && !hasURL)
-        return;
-    // メッセージ数をカウント（Firestoreを使用）
     try {
+        // ボットのメッセージは無視
+        if (message.author.bot)
+            return;
+        // DMチャンネルかどうかを確認
+        if (message.channel.type !== discord_js_1.ChannelType.DM)
+            return;
+        // 添付ファイルがあるか、またはURLが含まれているかを確認
+        const hasAttachments = message.attachments.size > 0;
+        const hasURL = /(https?:\/\/[^\s]+)/.test(message.content);
+        if (!hasAttachments && !hasURL)
+            return; // 添付ファイルもURLもない場合はスキップ
+        // メッセージ数をカウント（Firestoreを使用）
         const userId = message.author.id;
-        const newCount = await (0, firestoreMessageCount_1.incrementMessageCount)(userId); // メッセージ数をFirestoreで更新
+        const newCount = await (0, firestoreMessageCount_1.incrementMessageCount)(userId); // Firestoreでカウントを更新
         const currentCount = messageCounts.get(userId) || 0;
         messageCounts.set(userId, currentCount + 1);
-        saveMessageCounts(); // メッセージ数を保存
-        const dmChannel = await message.author.createDM();
-        // 添付ファイルの処理
-        const files = [];
-        for (const attachment of message.attachments.values()) {
-            const file = new discord_js_1.AttachmentBuilder(attachment.url, {
-                name: attachment.name || 'file',
-            });
-            files.push(file);
-        }
-        // 送信するテキスト（Firestoreのカウントを含む）
-        const content = message.content.trim() !== ''
-            ? `> 現在のブックマーク数: ${newCount}\n${message.content}`
-            : `> 現在のブックマーク数: ${newCount}`;
-        await dmChannel.send({
-            content,
-            files,
-        });
-        console.log(`DM sent to ${message.author.tag}`);
+        saveMessageCounts(); // ローカルにカウントを保存
+        console.log(`✅ ユーザー ${message.author.tag} のメッセージをカウントしました。現在のカウント: ${currentCount + 1}`);
     }
     catch (error) {
-        console.error(`DM送信に失敗しました (${message.author.tag}):`, error);
+        console.error('❌ DM内のメッセージカウント中にエラーが発生しました:', error);
     }
 });
 client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
@@ -221,23 +206,23 @@ client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
             const userId = user.id; // リアクションを付けたユーザーのID
             const currentCount = messageCounts.get(userId) || 0;
             if (currentCount > 0) {
-                messageCounts.set(userId, currentCount - 1); // カウントを減らす
-                saveMessageCounts(); // カウントを保存
+                messageCounts.set(userId, currentCount - 1); // ローカル更新
+                saveMessageCounts();
                 console.log(`ℹ️ ユーザー ${userId} のカウントを減らしました。現在のカウント: ${currentCount - 1}`);
-                // Firestoreのカウントを減らす処理を追加
-                const userDocRef = firebase_1.db.collection('messageCounts').doc(userId);
-                await userDocRef.update({
-                    count: firestore_1.FieldValue.increment(-1),
-                });
-                console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。`);
             }
             else {
-                console.log(`ℹ️ ユーザー ${userId} のカウントは既に 0 です。`);
+                console.log(`ℹ️ ユーザー ${userId} のローカルカウントは既に 0 です。Firestore だけ更新します。`);
             }
+            // Firestore のカウントを減らす処理（必ず実行する）
+            const userDocRef = firebase_1.db.collection('messageCounts').doc(userId);
+            await userDocRef.update({
+                count: firestore_1.FieldValue.increment(-1),
+            });
+            console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。`);
         }
     }
     catch (error) {
         console.error('❌ リアクションによるメッセージ削除に失敗しました:', error);
     }
-});
-client.login(TOKEN);
+}); // ここでイベントリスナーを閉じる
+client.login(TOKEN); // クライアントのログイン処理

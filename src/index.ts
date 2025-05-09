@@ -30,6 +30,7 @@ db.collection("messageCounts").doc("test").set({ count: 1 })
   })
   .catch((err) => {
     console.error("❌ Firestore write test failed:", err);
+    
   });
 
 // Expressサーバーの設定
@@ -146,48 +147,30 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 client.on(Events.MessageCreate, async (message: Message) => {
-  if (message.author.bot) return;
-  if (message.channel.id !== TARGET_CHANNEL_ID) return;
-
-  // 添付ファイルがない場合、URLが含まれているかを確認
-  const hasAttachments = message.attachments.size > 0;
-  const hasURL = /(https?:\/\/[^\s]+)/.test(message.content);
-
-  if (!hasAttachments && !hasURL) return;
-
-  // メッセージ数をカウント（Firestoreを使用）
   try {
+    // ボットのメッセージは無視
+    if (message.author.bot) return;
+
+    // DMチャンネルかどうかを確認
+    if (message.channel.type !== ChannelType.DM) return;
+
+    // 添付ファイルがあるか、またはURLが含まれているかを確認
+    const hasAttachments = message.attachments.size > 0;
+    const hasURL = /(https?:\/\/[^\s]+)/.test(message.content);
+
+    if (!hasAttachments && !hasURL) return; // 添付ファイルもURLもない場合はスキップ
+
+    // メッセージ数をカウント（Firestoreを使用）
     const userId = message.author.id;
-    const newCount = await incrementMessageCount(userId); // メッセージ数をFirestoreで更新
+    const newCount = await incrementMessageCount(userId); // Firestoreでカウントを更新
 
     const currentCount = messageCounts.get(userId) || 0;
     messageCounts.set(userId, currentCount + 1);
-    saveMessageCounts(); // メッセージ数を保存
+    saveMessageCounts(); // ローカルにカウントを保存
 
-    const dmChannel = await message.author.createDM();
-
-    // 添付ファイルの処理
-    const files: AttachmentBuilder[] = [];
-    for (const attachment of message.attachments.values()) {
-      const file = new AttachmentBuilder(attachment.url, {
-        name: attachment.name || 'file',
-      });
-      files.push(file);
-    }
-
-    // 送信するテキスト（Firestoreのカウントを含む）
-    const content = message.content.trim() !== ''
-      ? `> 現在のブックマーク数: ${newCount}\n${message.content}`
-      : `> 現在のブックマーク数: ${newCount}`;
-
-    await dmChannel.send({
-      content,
-      files,
-    });
-
-    console.log(`DM sent to ${message.author.tag}`);
+    console.log(`✅ ユーザー ${message.author.tag} のメッセージをカウントしました。現在のカウント: ${currentCount + 1}`);
   } catch (error) {
-    console.error(`DM送信に失敗しました (${message.author.tag}):`, error);
+    console.error('❌ DM内のメッセージカウント中にエラーが発生しました:', error);
   }
 });
 
@@ -224,23 +207,23 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
       const currentCount = messageCounts.get(userId) || 0;
 
       if (currentCount > 0) {
-        messageCounts.set(userId, currentCount - 1); // カウントを減らす
-        saveMessageCounts(); // カウントを保存
+        messageCounts.set(userId, currentCount - 1); // ローカル更新
+        saveMessageCounts();
         console.log(`ℹ️ ユーザー ${userId} のカウントを減らしました。現在のカウント: ${currentCount - 1}`);
-
-        // Firestoreのカウントを減らす処理を追加
-        const userDocRef = db.collection('messageCounts').doc(userId);
-        await userDocRef.update({
-          count: FieldValue.increment(-1),
-        });
-        console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。`);
       } else {
-        console.log(`ℹ️ ユーザー ${userId} のカウントは既に 0 です。`);
+        console.log(`ℹ️ ユーザー ${userId} のローカルカウントは既に 0 です。Firestore だけ更新します。`);
       }
+
+      // Firestore のカウントを減らす処理（必ず実行する）
+      const userDocRef = db.collection('messageCounts').doc(userId);
+      await userDocRef.update({
+        count: FieldValue.increment(-1),
+      });
+      console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。`);
     }
   } catch (error) {
     console.error('❌ リアクションによるメッセージ削除に失敗しました:', error);
   }
-});
+}); // ここでイベントリスナーを閉じる
 
-client.login(TOKEN);
+client.login(TOKEN); // クライアントのログイン処理
