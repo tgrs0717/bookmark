@@ -45,7 +45,7 @@ async function execute(interaction) {
         // DMチャンネルを作成してメッセージを送信
         const dmChannel = await interaction.user.createDM();
         await dmChannel.send({
-            content: `>No.: ${newCount}\n${messageContent}\n`,
+            content: `> No.: ${newCount}\n${messageContent}\n`,
         });
         // 公開チャンネルにメッセージを送信
         await interaction.channel?.send(messageContent);

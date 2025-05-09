@@ -114,7 +114,10 @@ client.on(discord_js_1.Events.InteractionCreate, async (interaction) => {
     }
 });
 // スラッシュコマンドの登録
-const commands = [text_1.data.toJSON()];
+const commands = [
+    text_1.data.toJSON(),
+    text_1.clearDmData.toJSON(),
+];
 const rest = new discord_js_1.REST({ version: '10' }).setToken(TOKEN);
 (async () => {
     try {

@@ -14,7 +14,7 @@ import path from 'path';
 import express from 'express';
 import { incrementMessageCount, getMessageCount } from './firestoreMessageCount';
 import { db } from './firebase'; // 上記ファイルを import
-import { data as sendCommand } from './commands/text'; // スラッシュコマンドをインポート
+import { data as sendCommand,clearDmData } from './commands/text'; // スラッシュコマンドをインポート
 
 dotenv.config();
 
@@ -94,12 +94,17 @@ client.on(Events.InteractionCreate, async interaction => {
       }
     }
   }
+  
+  
 });
 
 
 
 // スラッシュコマンドの登録
-const commands = [sendCommand.toJSON()];
+const commands = [
+   sendCommand.toJSON(),
+   clearDmData.toJSON(),
+];
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
