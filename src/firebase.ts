@@ -1,29 +1,13 @@
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import * as fs from 'fs';
+import * as path from 'path';
 
+// JSONファイルのパスを取得
+const serviceAccountPath = path.resolve(__dirname, 'firebase-key.json');
+const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
 
-const credentialsString = process.env.GOOGLE_CREDENTIALS;
-if (!credentialsString) {
-  throw new Error('❌ Missing GOOGLE_CREDENTIALS environment variable');
-}
-
-let credentials;
-try {
-  credentials = JSON.parse(credentialsString);
-} catch (err) {
-  console.error('❌ Failed to parse GOOGLE_CREDENTIALS:', err);
-  throw err;
-}
-
-// 🔍 デバッグ出力（初期の一部だけ）
-console.log('🔐 private_key preview:', credentials.private_key.slice(0, 100));
-
-export const firebaseApp = initializeApp({
-  credential: cert(credentials),
-});
-
-const serviceAccount = credentials;
-
+// Firebase 初期化
 initializeApp({
   credential: cert(serviceAccount),
 });
