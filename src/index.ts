@@ -170,8 +170,14 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
     // ボット自身のリアクションは無視
     if (user.bot) return;
 
+    console.log('リアクション追加: ', reaction.message.id);  // メッセージIDをログに出力
+
     // リアクションが "❌" か確認
     if (reaction.emoji.name === '❌') {
+      if (!reaction.message) {
+        console.log('❌ メッセージが見つかりませんでした');
+        return;
+      }
       // メッセージを削除
       await reaction.message.delete();
       console.log(`✅ メッセージ ${reaction.message.id} を削除しました（❌ リアクションが追加されました）。`);
