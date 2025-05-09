@@ -43,6 +43,8 @@ const path_1 = __importDefault(require("path"));
 const express_1 = __importDefault(require("express"));
 const firestoreMessageCount_1 = require("./firestoreMessageCount");
 const firebase_1 = require("./firebase"); // 上記ファイルを import
+const text_1 = require("./commands/text"); // スラッシュコマンドをインポート
+dotenv.config();
 // Firestore 書き込みテスト
 firebase_1.db.collection("messageCounts").doc("test").set({ count: 1 })
     .then(() => {
@@ -60,8 +62,8 @@ app.get('/', (_req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
-dotenv.config();
 const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
 const TARGET_CHANNEL_ID = process.env.TARGET_CHANNEL_ID;
 const MESSAGE_COUNTS_FILE = path_1.default.join(__dirname, 'messageCounts.json');
 const client = new discord_js_1.Client({
@@ -92,6 +94,19 @@ loadMessageCounts(); // 起動時にメッセージ数を読み込む
 client.once(discord_js_1.Events.ClientReady, () => {
     console.log(`Logged in as ${client.user?.tag}`);
 });
+// スラッシュコマンドの登録
+const commands = [text_1.data.toJSON()];
+const rest = new discord_js_1.REST({ version: '10' }).setToken(TOKEN);
+(async () => {
+    try {
+        console.log('⏳ スラッシュコマンドを登録中...');
+        await rest.put(discord_js_1.Routes.applicationCommands(CLIENT_ID), { body: commands });
+        console.log('✅ スラッシュコマンドが登録されました');
+    }
+    catch (error) {
+        console.error('❌ スラッシュコマンドの登録に失敗しました:', error);
+    }
+})();
 client.on(discord_js_1.Events.MessageCreate, async (message) => {
     if (message.author.bot)
         return;
