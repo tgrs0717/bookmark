@@ -65,14 +65,13 @@ console.log('✅ 返信を編集しました');
 
 setTimeout(async () => {
   try {
-    const reply = await interaction.fetchReply();
-    console.log('✅ メッセージ取得成功:', reply.id);
-    await reply.delete();
-    console.log('✅ 応答メッセージを削除しました');
+    // ここで自分で削除する場合、 `interaction.deleteReply()` を使用
+    await interaction.deleteReply();
+    console.log('✅ エフェメラルメッセージを削除しました');
   } catch (error) {
-    console.error('❌ 応答メッセージの削除に失敗しました:', error);
+    console.error('❌ エフェメラルメッセージの削除に失敗しました:', error);
   }
-}, 5000);
+}, 5000);  // 5秒後に削除
 
     console.log(`✅ メッセージを送信しました: ${messageContent}`);
   } catch (error) {
