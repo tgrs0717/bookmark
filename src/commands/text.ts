@@ -59,12 +59,16 @@ export async function execute(interaction: any) {
 
     // 応答を編集
     await interaction.editReply({
-      content: `ボットが代わりに送信しました`,
-    });
-    setTimeout(async () => {
+  content: 'ボットが代わりに送信しました',
+});
+console.log('✅ 返信を編集しました');
+
+setTimeout(async () => {
   try {
     const reply = await interaction.fetchReply();
+    console.log('✅ メッセージ取得成功:', reply.id);
     await reply.delete();
+    console.log('✅ 応答メッセージを削除しました');
   } catch (error) {
     console.error('❌ 応答メッセージの削除に失敗しました:', error);
   }

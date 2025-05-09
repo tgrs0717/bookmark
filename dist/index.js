@@ -177,9 +177,9 @@ client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
         console.log('リアクション追加: ', reaction.message.id); // メッセージIDをログに出力
         // リアクションが "❌" か確認
         if (reaction.emoji.name === '❌') {
-            if (!reaction.message) {
-                console.log('❌ メッセージが見つかりませんでした');
-                return;
+            // メッセージがpartialの場合、完全なメッセージを取得
+            if (reaction.message.partial) {
+                await reaction.message.fetch();
             }
             // メッセージを削除
             await reaction.message.delete();

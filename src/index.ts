@@ -165,6 +165,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
     console.error(`DM送信に失敗しました (${message.author.tag}):`, error);
   }
 });
+
 client.on(Events.MessageReactionAdd, async (reaction, user) => {
   try {
     // ボット自身のリアクションは無視
@@ -174,10 +175,11 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
 
     // リアクションが "❌" か確認
     if (reaction.emoji.name === '❌') {
-      if (!reaction.message) {
-        console.log('❌ メッセージが見つかりませんでした');
-        return;
+      // メッセージがpartialの場合、完全なメッセージを取得
+      if (reaction.message.partial) {
+        await reaction.message.fetch();
       }
+
       // メッセージを削除
       await reaction.message.delete();
       console.log(`✅ メッセージ ${reaction.message.id} を削除しました（❌ リアクションが追加されました）。`);
@@ -186,5 +188,6 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
     console.error('❌ リアクションによるメッセージ削除に失敗しました:', error);
   }
 });
+
 
 client.login(TOKEN);
