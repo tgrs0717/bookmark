@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, CommandInteraction, EmbedBuilder, ChatInputCommandInteraction, CacheType, TextChannel } from 'discord.js';
 import { db } from '../firebase'; // Firestore設定ファイルのパスを調整
+import { FieldValue } from 'firebase-admin/firestore';
 import { incrementMessageCount } from '../firestoreMessageCount';
 
 // 許可されたチャンネルID
@@ -138,11 +139,14 @@ export async function clearDmExecute(interaction: CommandInteraction) {
     }
 
     const messagesArray = Array.from(messages.values());
+    let deletedCount = 0; // 削除したメッセージの数をカウント
+
     await Promise.all(
       messagesArray.map(async (msg) => {
         if (msg.author.bot) {
           try {
             await msg.delete();
+            deletedCount++; // 削除したメッセージをカウント
           } catch (error) {
             console.warn(`⚠️ メッセージ ${msg.id} の削除に失敗しました:`, error);
           }
@@ -150,14 +154,40 @@ export async function clearDmExecute(interaction: CommandInteraction) {
       })
     );
 
-    await interaction.editReply(`ボットのDM内のメッセージをすべて削除しました（${messagesArray.length} 件）。`);
-    console.log(`✅ DM内のボットメッセージを削除しました (${messagesArray.length} 件)`);
+    // Firestoreのカウントを減らす処理
+    if (deletedCount > 0) {
+      const userId = interaction.user.id;
+      const userDocRef = db.collection('messageCounts').doc(userId);
+
+      try {
+        const userDoc = await userDocRef.get();
+        if (userDoc.exists) {
+          const currentCount = userDoc.data()?.count || 0;
+
+          if (currentCount > 0) {
+            const decrementValue = Math.min(deletedCount, currentCount); // カウントがマイナスにならないように調整
+            await userDocRef.update({
+              count: FieldValue.increment(-decrementValue),
+            });
+            console.log(`✅ Firestoreでユーザー ${userId} のカウントを ${decrementValue} 減らしました。`);
+          } else {
+            console.log(`ℹ️ ユーザー ${userId} のカウントは既に 0 です。減算をスキップしました。`);
+          }
+        } else {
+          console.log(`ℹ️ Firestoreにユーザー ${userId} のカウントデータが存在しません。`);
+        }
+      } catch (err) {
+        console.error(`❌ Firestoreでユーザー ${userId} のカウント減少に失敗しました:`, err);
+      }
+    }
+
+    await interaction.editReply(`ボットのDM内のメッセージをすべて削除しました（${deletedCount} 件）。`);
+    console.log(`✅ DM内のボットメッセージを削除しました (${deletedCount} 件)`);
   } catch (error) {
     console.error('❌ DM内のメッセージ削除に失敗しました:', error);
     await handleErrorResponse(interaction, 'DM内のメッセージ削除中にエラーが発生しました。');
   }
 }
-
 // execute関数の実装
 export function execute(interaction: ChatInputCommandInteraction<CacheType>) {
   const { commandName } = interaction;
