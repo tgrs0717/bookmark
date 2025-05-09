@@ -43,6 +43,7 @@ const path_1 = __importDefault(require("path"));
 const express_1 = __importDefault(require("express"));
 const firestoreMessageCount_1 = require("./firestoreMessageCount");
 const firebase_1 = require("./firebase"); // 上記ファイルを import
+const firestore_1 = require("firebase-admin/firestore");
 const sendCommandModule = __importStar(require("./commands/text"));
 const text_1 = require("./commands/text"); // スラッシュコマンドをインポート
 dotenv.config();
@@ -94,6 +95,24 @@ function loadMessageCounts() {
     }
 }
 loadMessageCounts(); // 起動時にメッセージ数を読み込む
+// メッセージ削除時にFirestoreにバックアップ
+function backupDeletedMessageToFirestore(message) {
+    const deletedMessage = {
+        id: message.id,
+        content: message.content,
+        author: message.author.tag,
+        timestamp: message.createdTimestamp,
+    };
+    // Firestoreにメッセージを保存
+    const deletedMessagesRef = firebase_1.db.collection('deletedMessages');
+    deletedMessagesRef.add(deletedMessage)
+        .then(() => {
+        console.log('✅ メッセージがFirestoreにバックアップされました');
+    })
+        .catch((error) => {
+        console.error('❌ Firestoreへのバックアップに失敗しました:', error);
+    });
+}
 // スラッシュコマンドの登録
 const commands = [
     text_1.sendCommand.toJSON(),
@@ -176,6 +195,7 @@ client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
     try {
         if (user.bot)
             return;
+        // 部分的なリアクションやメッセージを完全に取得
         if (reaction.partial)
             await reaction.fetch();
         if (reaction.message.partial)
@@ -186,8 +206,34 @@ client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
             message.channel.type === discord_js_1.ChannelType.DM &&
             message.author?.id === client.user?.id // Bot自身のDMメッセージに限定
         ) {
+            // 削除前にFirestoreにバックアップ
+            if (message instanceof discord_js_1.Message) {
+                backupDeletedMessageToFirestore(message);
+            }
+            else {
+                console.error('❌ メッセージが完全に取得されていません。');
+                return;
+            }
+            // メッセージ削除
             await message.delete();
             console.log(`✅ DM内のボットメッセージ ${message.id} を削除しました`);
+            // カウントを減らす処理
+            const userId = user.id; // リアクションを付けたユーザーのID
+            const currentCount = messageCounts.get(userId) || 0;
+            if (currentCount > 0) {
+                messageCounts.set(userId, currentCount - 1); // カウントを減らす
+                saveMessageCounts(); // カウントを保存
+                console.log(`ℹ️ ユーザー ${userId} のカウントを減らしました。現在のカウント: ${currentCount - 1}`);
+                // Firestoreのカウントを減らす処理を追加
+                const userDocRef = firebase_1.db.collection('messageCounts').doc(userId);
+                await userDocRef.update({
+                    count: firestore_1.FieldValue.increment(-1),
+                });
+                console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。`);
+            }
+            else {
+                console.log(`ℹ️ ユーザー ${userId} のカウントは既に 0 です。`);
+            }
         }
     }
     catch (error) {

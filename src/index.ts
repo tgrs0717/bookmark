@@ -17,6 +17,7 @@ import path from 'path';
 import express from 'express';
 import { incrementMessageCount, getMessageCount } from './firestoreMessageCount';
 import { db } from './firebase'; // 上記ファイルを import
+import { FieldValue } from 'firebase-admin/firestore';
 import * as sendCommandModule from './commands/text';
 import { sendCommand,clearDmCommand,restoreCommand } from './commands/text'; // スラッシュコマンドをインポート
 
@@ -80,7 +81,25 @@ function loadMessageCounts() {
 
 loadMessageCounts(); // 起動時にメッセージ数を読み込む
 
+// メッセージ削除時にFirestoreにバックアップ
+function backupDeletedMessageToFirestore(message: Message) {
+  const deletedMessage = {
+    id: message.id,
+    content: message.content,
+    author: message.author.tag,
+    timestamp: message.createdTimestamp,
+  };
 
+  // Firestoreにメッセージを保存
+  const deletedMessagesRef = db.collection('deletedMessages');
+  deletedMessagesRef.add(deletedMessage)
+    .then(() => {
+      console.log('✅ メッセージがFirestoreにバックアップされました');
+    })
+    .catch((error) => {
+      console.error('❌ Firestoreへのバックアップに失敗しました:', error);
+    });
+}
 
 
 
@@ -176,6 +195,7 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
   try {
     if (user.bot) return;
 
+    // 部分的なリアクションやメッセージを完全に取得
     if (reaction.partial) await reaction.fetch();
     if (reaction.message.partial) await reaction.message.fetch();
 
@@ -187,10 +207,37 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
       message.channel.type === ChannelType.DM &&
       message.author?.id === client.user?.id // Bot自身のDMメッセージに限定
     ) {
+      // 削除前にFirestoreにバックアップ
+      if (message instanceof Message) {
+        backupDeletedMessageToFirestore(message);
+      } else {
+        console.error('❌ メッセージが完全に取得されていません。');
+        return;
+      }
+
+      // メッセージ削除
       await message.delete();
       console.log(`✅ DM内のボットメッセージ ${message.id} を削除しました`);
-    }
 
+      // カウントを減らす処理
+      const userId = user.id; // リアクションを付けたユーザーのID
+      const currentCount = messageCounts.get(userId) || 0;
+
+      if (currentCount > 0) {
+        messageCounts.set(userId, currentCount - 1); // カウントを減らす
+        saveMessageCounts(); // カウントを保存
+        console.log(`ℹ️ ユーザー ${userId} のカウントを減らしました。現在のカウント: ${currentCount - 1}`);
+
+        // Firestoreのカウントを減らす処理を追加
+        const userDocRef = db.collection('messageCounts').doc(userId);
+        await userDocRef.update({
+          count: FieldValue.increment(-1),
+        });
+        console.log(`✅ Firestoreでユーザー ${userId} のカウントを減らしました。`);
+      } else {
+        console.log(`ℹ️ ユーザー ${userId} のカウントは既に 0 です。`);
+      }
+    }
   } catch (error) {
     console.error('❌ リアクションによるメッセージ削除に失敗しました:', error);
   }
