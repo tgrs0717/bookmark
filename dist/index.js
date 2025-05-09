@@ -157,7 +157,7 @@ client.on(discord_js_1.Events.MessageCreate, async (message) => {
         }
         // 送信するテキスト（Firestoreのカウントを含む）
         const content = message.content.trim() !== ''
-            ? `あなたが送ったメッセージ:\n> ${message.content}\n\nこれまでに送信したメッセージ数: ${newCount}`
+            ? `> これまでに送信したメッセージ数: ${newCount}\n${message.content}`
             : `これまでに送信したメッセージ数: ${newCount}`;
         await dmChannel.send({
             content,
