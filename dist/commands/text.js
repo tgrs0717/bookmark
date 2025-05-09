@@ -53,6 +53,15 @@ async function execute(interaction) {
         await interaction.editReply({
             content: `ボットが代わりに送信しました`,
         });
+        setTimeout(async () => {
+            try {
+                const reply = await interaction.fetchReply();
+                await reply.delete();
+            }
+            catch (error) {
+                console.error('❌ 応答メッセージの削除に失敗しました:', error);
+            }
+        }, 5000);
         console.log(`✅ メッセージを送信しました: ${messageContent}`);
     }
     catch (error) {
@@ -68,7 +77,6 @@ async function execute(interaction) {
         }
     }
 }
-// ボットのDM内のメッセージを削除するコマンドの実行
 // ボットのDM内のメッセージを削除するコマンドの実行
 async function clearDmExecute(interaction) {
     try {

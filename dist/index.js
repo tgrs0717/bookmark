@@ -169,4 +169,20 @@ client.on(discord_js_1.Events.MessageCreate, async (message) => {
         console.error(`DM送信に失敗しました (${message.author.tag}):`, error);
     }
 });
+client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
+    try {
+        // ボット自身のリアクションは無視
+        if (user.bot)
+            return;
+        // リアクションが "❌" か確認
+        if (reaction.emoji.name === '❌') {
+            // メッセージを削除
+            await reaction.message.delete();
+            console.log(`✅ メッセージ ${reaction.message.id} を削除しました（❌ リアクションが追加されました）。`);
+        }
+    }
+    catch (error) {
+        console.error('❌ リアクションによるメッセージ削除に失敗しました:', error);
+    }
+});
 client.login(TOKEN);
