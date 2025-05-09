@@ -183,9 +183,15 @@ client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
             if (reaction.message.partial) {
                 await reaction.message.fetch();
             }
-            // メッセージを削除
-            await reaction.message.delete();
-            console.log(`✅ メッセージ ${reaction.message.id} を削除しました（❌ リアクションが追加されました）。`);
+            // メッセージの送信者がボットか確認
+            if (reaction.message.author?.bot) {
+                // メッセージを削除
+                await reaction.message.delete();
+                console.log(`✅ ボットのメッセージ ${reaction.message.id} を削除しました（❌ リアクションが追加されました）。`);
+            }
+            else {
+                console.log(`ℹ️ メッセージ ${reaction.message.id} はボットのメッセージではありません。削除をスキップしました。`);
+            }
         }
     }
     catch (error) {

@@ -173,7 +173,7 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
     // ボット自身のリアクションは無視
     if (user.bot) return;
 
-    console.log('リアクション追加: ', reaction.message.id);  // メッセージIDをログに出力
+    console.log('リアクション追加: ', reaction.message.id); // メッセージIDをログに出力
 
     // リアクションが "❌" か確認
     if (reaction.emoji.name === '❌') {
@@ -182,14 +182,18 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
         await reaction.message.fetch();
       }
 
-      // メッセージを削除
-      await reaction.message.delete();
-      console.log(`✅ メッセージ ${reaction.message.id} を削除しました（❌ リアクションが追加されました）。`);
+      // メッセージの送信者がボットか確認
+      if (reaction.message.author?.bot) {
+        // メッセージを削除
+        await reaction.message.delete();
+        console.log(`✅ ボットのメッセージ ${reaction.message.id} を削除しました（❌ リアクションが追加されました）。`);
+      } else {
+        console.log(`ℹ️ メッセージ ${reaction.message.id} はボットのメッセージではありません。削除をスキップしました。`);
+      }
     }
   } catch (error) {
     console.error('❌ リアクションによるメッセージ削除に失敗しました:', error);
   }
 });
-
 
 client.login(TOKEN);
