@@ -8,16 +8,13 @@ import {
     REST,
     Routes,
     ChannelType,
-    CacheType,
-    ChatInputCommandInteraction,
 } from 'discord.js';
 import * as dotenv from 'dotenv';
-import fs from 'fs';
 import path from 'path';
 import express from 'express';
-import { incrementMessageCount, getMessageCount } from './firestoreMessageCount';
-import { db } from './firebase'; // 上記ファイルを import
+import { incrementMessageCount} from './firestoreMessageCount';
 import { FieldValue } from 'firebase-admin/firestore';
+import { db } from './firebase'; 
 import * as sendCommandModule from './commands/text';
 import { sendCommand,clearDmCommand,restoreCommand } from './commands/text'; // スラッシュコマンドをインポート
 
@@ -30,7 +27,6 @@ db.collection("messageCounts").doc("test").set({ count: 1 })
   })
   .catch((err) => {
     console.error("❌ Firestore write test failed:", err);
-    
   });
 
 // Expressサーバーの設定
@@ -61,6 +57,12 @@ const client = new Client({
   ],
   partials: [Partials.Channel, Partials.Message, Partials.Reaction],
 });
+
+ // ユーザーごとのメッセージ数を追跡
+
+// メッセージ数を保存する関数
+
+// メッセージ数を読み込む関数
 
 
 // メッセージ削除時にFirestoreにバックアップ
@@ -128,27 +130,47 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 client.on(Events.MessageCreate, async (message: Message) => {
+  if (message.author.bot) return;
+  if (message.channel.id !== TARGET_CHANNEL_ID) return;
+
+  // 添付ファイルがない場合、URLが含まれているかを確認
+  const hasAttachments = message.attachments.size > 0;
+  const hasURL = /(https?:\/\/[^\s]+)/.test(message.content);
+
+  if (!hasAttachments && !hasURL) return;
+
+  // メッセージ数をカウント（Firestoreを使用）
   try {
-    // ボットのメッセージは無視
-    if (message.author.bot) return;
-
-    // DMチャンネルかどうかを確認
-    if (message.channel.type !== ChannelType.DM) return;
-
-    // 添付ファイルがあるか、またはURLが含まれているかを確認
-    const hasAttachments = message.attachments.size > 0;
-    const hasURL = /(https?:\/\/[^\s]+)/.test(message.content);
-
-    if (!hasAttachments && !hasURL) return; // 添付ファイルもURLもない場合はスキップ
-
-    // メッセージ数をカウント（Firestoreを使用）
     const userId = message.author.id;
-    const newCount = await incrementMessageCount(userId);
-    console.log(`✅ ユーザー ${message.author.tag} のメッセージ数は Firestore 上で ${newCount} になりました`);
+const newCount = await incrementMessageCount(userId);
+console.log(`✅ ユーザー ${message.author.tag} のメッセージ数は Firestore 上で ${newCount} になりました`);
+
+    const dmChannel = await message.author.createDM();
+
+    // 添付ファイルの処理
+    const files: AttachmentBuilder[] = [];
+    for (const attachment of message.attachments.values()) {
+      const file = new AttachmentBuilder(attachment.url, {
+        name: attachment.name || 'file',
+      });
+      files.push(file);
+    }
+
+    // 送信するテキスト（Firestoreのカウントを含む）
+    const content = message.content.trim() !== ''
+      ? `> 現在のブックマーク数: ${newCount}\n${message.content}`
+      : `> 現在のブックマーク数: ${newCount}`;
+
+    await dmChannel.send({
+      content,
+      files,
+    });
+
+    console.log(`DM sent to ${message.author.tag}`);
   } catch (error) {
-    console.error('❌ メッセージ作成時のエラー:', error);
+    console.error(`DM送信に失敗しました (${message.author.tag}):`, error);
   }
-}); // ここで MessageCreate イベントリスナーを閉じる
+});
 
 client.on(Events.MessageReactionAdd, async (reaction, user) => {
   try {
@@ -206,6 +228,6 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
   } catch (error) {
     console.error('❌ リアクションによるメッセージ削除に失敗しました:', error);
   }
-}); // ここで MessageReactionAdd イベントリスナーを閉じる
+});// ここで MessageReactionAdd イベントリスナーを閉じる
 
 client.login(TOKEN); // クライアントのログイン処理

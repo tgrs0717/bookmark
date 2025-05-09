@@ -1,29 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMessageCount = getMessageCount;
 exports.incrementMessageCount = incrementMessageCount;
+exports.getMessageCount = getMessageCount;
 const firebase_1 = require("./firebase");
-const COLLECTION = 'messageCounts';
-async function getMessageCount(userId) {
-    const doc = await firebase_1.db.collection(COLLECTION).doc(userId).get();
-    if (!doc.exists)
-        return 0;
-    return doc.data()?.count || 0;
-}
+const firestore_1 = require("firebase-admin/firestore");
 async function incrementMessageCount(userId) {
-    try {
-        const docRef = firebase_1.db.collection(COLLECTION).doc(userId);
-        let newCount = 0;
-        await firebase_1.db.runTransaction(async (t) => {
-            const doc = await t.get(docRef);
-            newCount = (doc.exists ? doc.data()?.count || 0 : 0) + 1;
-            t.set(docRef, { count: newCount }, { merge: true });
-        });
-        console.log(`✅ Message count updated for ${userId}: ${newCount}`);
-        return newCount;
-    }
-    catch (error) {
-        console.error(`❌ Failed to update message count for ${userId}:`, error);
-        throw error;
-    }
+    const docRef = firebase_1.db.collection('messageCounts').doc(userId);
+    await docRef.set({ count: firestore_1.FieldValue.increment(1) }, { merge: true });
+    const snapshot = await docRef.get();
+    const data = snapshot.data();
+    return data?.count ?? 0;
+}
+async function getMessageCount(userId) {
+    const doc = await firebase_1.db.collection('messageCounts').doc(userId).get();
+    return doc.exists && typeof doc.data()?.count === 'number' ? doc.data().count : 0;
 }
