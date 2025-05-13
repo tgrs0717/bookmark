@@ -188,6 +188,13 @@ client.on(discord_js_1.Events.MessageCreate, async (message) => {
         const hasURL = /(https?:\/\/[^\s]+)/.test(message.content);
         if (!hasAttachments && !hasURL)
             return; // 添付ファイルもURLもない場合はスキップ
+        try {
+            await message.react('⭐'); // ⭐リアクションを追加
+            console.log(`✅ ${message.author.tag} のメッセージにリアクションを追加しました`);
+        }
+        catch (error) {
+            console.error('❌ リアクションの追加に失敗しました:', error);
+        }
         // メッセージ数をカウント（Firestoreを使用）
         const userId = message.author.id;
         const userDocRef = firebase_1.db.collection('messageCounts').doc(userId);
@@ -209,6 +216,46 @@ client.on(discord_js_1.Events.MessageReactionAdd, async (reaction, user) => {
         if (reaction.message.partial)
             await reaction.message.fetch();
         const message = reaction.message;
+        // ⭐リアクションを検知し、リアクションを付けたユーザーにメッセージをDMで送信＆カウント
+        if (reaction.emoji.name === '⭐' &&
+            (message.channel.type === discord_js_1.ChannelType.GuildText || message.channel.type === discord_js_1.ChannelType.PublicThread)) {
+            const targetUser = user;
+            const targetMessage = message;
+            if (targetMessage.partial) {
+                console.log('ℹ️ 部分的なメッセージが削除されました。処理をスキップします。');
+                return;
+            }
+            const hasAttachments = targetMessage.attachments.size > 0;
+            const hasURL = /(https?:\/\/[^\s]+)/.test(targetMessage.content);
+            if (!hasAttachments && !hasURL) {
+                console.log('ℹ️ 対象メッセージに添付またはURLがないため、スキップします。');
+                return;
+            }
+            try {
+                const dm = await targetUser.createDM();
+                const files = [];
+                for (const attachment of targetMessage.attachments.values()) {
+                    const file = new discord_js_1.AttachmentBuilder(attachment.url, {
+                        name: attachment.name || 'file',
+                    });
+                    files.push(file);
+                }
+                // Firestore カウントを更新
+                const userId = targetUser.id;
+                const newCount = await (0, firestoreMessageCount_1.incrementMessageCount)(userId);
+                const content = targetMessage.content.trim() !== ''
+                    ? `> 現在のブックマーク数: ${newCount}\n${targetMessage.content}`
+                    : `> 現在のブックマーク数: ${newCount}`;
+                await dm.send({
+                    content,
+                    files,
+                });
+                console.log(`✅ ${targetUser.tag} にメッセージをDMで送信しました（⭐リアクション）`);
+            }
+            catch (err) {
+                console.error(`❌ ${targetUser.tag} へのDM送信に失敗しました:`, err);
+            }
+        }
         // ❌ リアクション && DMチャンネル限定
         if (reaction.emoji.name === '❌' &&
             message.channel.type === discord_js_1.ChannelType.DM &&
