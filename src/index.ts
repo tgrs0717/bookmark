@@ -174,6 +174,45 @@ console.log(`✅ ユーザー ${message.author.tag} のメッセージ数は Fir
 
 client.on(Events.MessageCreate, async (message: Message) => {
   try {
+
+    // DMチャンネルかどうかを確認
+    if (message.channel.type !== ChannelType.GuildText ||
+      message.channel.id !== TARGET_CHANNEL_ID 
+    ) return;
+
+    // 添付ファイルがあるか、またはURLが含まれているかを確認
+    const hasAttachments = message.attachments.size > 0;
+    const hasURL = /(https?:\/\/[^\s]+)/.test(message.content);
+
+    if (!hasAttachments && !hasURL) return; // 添付ファイルもURLもない場合はスキップ
+
+try {
+    await message.react('⭐');
+    console.log(`✅ ${message.author.tag} のメッセージにリアクションを追加しました`);
+  } catch (error) {
+    console.error('❌ リアクションの追加に失敗しました:', error);
+  }
+
+    // メッセージ数をカウント（Firestoreを使用）
+    const userId = message.author.id;
+    const userDocRef = db.collection('messageCounts').doc(userId);
+
+    // Firestoreでカウントをインクリメント
+    await userDocRef.set(
+      { count: FieldValue.increment(1) },
+      { merge: true }
+    );
+
+    
+
+    console.log(`✅ ユーザー ${message.author.tag} のメッセージをカウントしました。`);
+  } catch (error) {
+    console.error('❌ DM内のメッセージカウント中にエラーが発生しました:', error);
+  }
+});
+
+client.on(Events.MessageCreate, async (message: Message) => {
+  try {
     // ボットのメッセージは無視
     if (message.author.bot) return;
 
@@ -186,12 +225,6 @@ client.on(Events.MessageCreate, async (message: Message) => {
 
     if (!hasAttachments && !hasURL) return; // 添付ファイルもURLもない場合はスキップ
 
-try {
-    await message.react('⭐'); // ⭐リアクションを追加
-    console.log(`✅ ${message.author.tag} のメッセージにリアクションを追加しました`);
-  } catch (error) {
-    console.error('❌ リアクションの追加に失敗しました:', error);
-  }
 
     // メッセージ数をカウント（Firestoreを使用）
     const userId = message.author.id;
