@@ -193,15 +193,15 @@ try {
     console.error('❌ リアクションの追加に失敗しました:', error);
   }
 
-    // メッセージ数をカウント（Firestoreを使用）
-    const userId = message.author.id;
-    const userDocRef = db.collection('messageCounts').doc(userId);
+    // // メッセージ数をカウント（Firestoreを使用）
+    // const userId = message.author.id;
+    // const userDocRef = db.collection('messageCounts').doc(userId);
 
-    // Firestoreでカウントをインクリメント
-    await userDocRef.set(
-      { count: FieldValue.increment(1) },
-      { merge: true }
-    );
+    // // Firestoreでカウントをインクリメント
+    // await userDocRef.set(
+    //   { count: FieldValue.increment(1) },
+    //   { merge: true }
+    // );
 
     
 

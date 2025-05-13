@@ -193,11 +193,14 @@ client.on(discord_js_1.Events.MessageCreate, async (message) => {
         catch (error) {
             console.error('❌ リアクションの追加に失敗しました:', error);
         }
-        // メッセージ数をカウント（Firestoreを使用）
-        const userId = message.author.id;
-        const userDocRef = firebase_1.db.collection('messageCounts').doc(userId);
-        // Firestoreでカウントをインクリメント
-        await userDocRef.set({ count: firestore_1.FieldValue.increment(1) }, { merge: true });
+        // // メッセージ数をカウント（Firestoreを使用）
+        // const userId = message.author.id;
+        // const userDocRef = db.collection('messageCounts').doc(userId);
+        // // Firestoreでカウントをインクリメント
+        // await userDocRef.set(
+        //   { count: FieldValue.increment(1) },
+        //   { merge: true }
+        // );
         console.log(`✅ ユーザー ${message.author.tag} のメッセージをカウントしました。`);
     }
     catch (error) {
