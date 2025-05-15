@@ -10,7 +10,6 @@ import {
     ChannelType,
 } from 'discord.js';
 import * as dotenv from 'dotenv';
-import path from 'path';
 import express from 'express';
 import { incrementMessageCount} from './firestoreMessageCount';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -44,7 +43,6 @@ app.listen(PORT, () => {
 const TOKEN = process.env.DISCORD_TOKEN!;
 const CLIENT_ID = process.env.CLIENT_ID!;
 const TARGET_CHANNEL_ID = process.env.TARGET_CHANNEL_ID!;
-const MESSAGE_COUNTS_FILE = path.join(__dirname, 'messageCounts.json');
 
 const client = new Client({
   intents: [
@@ -57,13 +55,6 @@ const client = new Client({
   ],
   partials: [Partials.Channel, Partials.Message, Partials.Reaction],
 });
-
- // ユーザーごとのメッセージ数を追跡
-
-// メッセージ数を保存する関数
-
-// メッセージ数を読み込む関数
-
 
 // メッセージ削除時にFirestoreにバックアップ
 function backupDeletedMessageToFirestore(message: Message) {
@@ -84,8 +75,6 @@ function backupDeletedMessageToFirestore(message: Message) {
       console.error('❌ Firestoreへのバックアップに失敗しました:', error);
     });
 }
-
-
 
 // スラッシュコマンドの登録
 const commands = [
@@ -192,18 +181,6 @@ try {
   } catch (error) {
     console.error('❌ リアクションの追加に失敗しました:', error);
   }
-
-    // // メッセージ数をカウント（Firestoreを使用）
-    // const userId = message.author.id;
-    // const userDocRef = db.collection('messageCounts').doc(userId);
-
-    // // Firestoreでカウントをインクリメント
-    // await userDocRef.set(
-    //   { count: FieldValue.increment(1) },
-    //   { merge: true }
-    // );
-
-    
 
     console.log(`✅ ユーザー ${message.author.tag} のメッセージをカウントしました。`);
   } catch (error) {

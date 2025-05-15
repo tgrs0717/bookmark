@@ -1,13 +1,14 @@
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import * as fs from 'fs';
-import * as path from 'path';
 
-// JSONファイルのパスを取得
-const serviceAccountPath = path.resolve(__dirname, 'firebase-key.json');
-const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+const base64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
 
-// Firebase 初期化
+if (!base64) {
+  throw new Error('FIREBASE_SERVICE_ACCOUNT_BASE64 環境変数が未設定です');
+}
+
+const serviceAccount = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
+
 initializeApp({
   credential: cert(serviceAccount),
 });
